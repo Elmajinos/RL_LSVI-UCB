@@ -1,0 +1,154 @@
+import numpy as np
+import matplotlib.pyplot as plt
+import seaborn as sns
+
+# --- Configuration "Turbo" ---
+# Small grid + many episodes to guarantee clear visual contrast
+GRID_SIZE = 10     
+EPISODES = 1000    
+GOAL = (GRID_SIZE - 1, GRID_SIZE - 1)
+START = (0, 0)
+ACTIONS = [0, 1, 2, 3] # Up, Down, Left, Right
+GAMMA = 0.9
+ALPHA = 0.05       # Slower learning rate for smoother visualization
+EPSILON_START = 1.0
+EPSILON_END = 0.01
+EPSILON_DECAY = 0.995
+
+class GridWorld:
+    def __init__(self):
+        self.reset()
+    
+    def reset(self):
+        self.agent_pos = START
+        return self.agent_pos
+    
+    def step(self, action):
+        x, y = self.agent_pos
+        if action == 0: x = max(0, x - 1)
+        elif action == 1: x = min(GRID_SIZE - 1, x + 1)
+        elif action == 2: y = max(0, y - 1)
+        elif action == 3: y = min(GRID_SIZE - 1, y + 1)
+        
+        self.agent_pos = (x, y)
+        done = (self.agent_pos == GOAL)
+        # Reward: +100 at goal, -1 per step (to encourage shortest path)
+        reward = 100 if done else -1 
+        return self.agent_pos, reward, done
+
+# --- 1. ONE-HOT (The "Rote Memorization" Approach) ---
+def get_features_one_hot(state, action):
+    # Dim = 400 (for a 10x10 grid)
+    dim = (GRID_SIZE * GRID_SIZE) * 4
+    phi = np.zeros(dim)
+    state_idx = state[0] * GRID_SIZE + state[1]
+    idx = state_idx * 4 + action
+    phi[idx] = 1
+    return phi
+
+# --- 2. LOW-DIM (The "Generalization" Approach) ---
+def get_features_low_dim(state, action):
+    x, y = state
+    # Normalization is crucial
+    norm_x, norm_y = x / GRID_SIZE, y / GRID_SIZE
+    feats = np.array([norm_x, norm_y, 1.0])
+    
+    # Only 12 weights total!
+    phi = np.zeros(3 * 4) 
+    start_idx = action * 3
+    phi[start_idx : start_idx + 3] = feats
+    return phi
+
+class LinearAgent:
+    def __init__(self, feature_func, n_features):
+        self.w = np.zeros(n_features)
+        self.feature_func = feature_func
+        self.epsilon = EPSILON_START
+        
+    def get_q(self, state, action):
+        return np.dot(self.w, self.feature_func(state, action))
+    
+    def select_action(self, state):
+        if np.random.rand() < self.epsilon:
+            return np.random.choice(ACTIONS)
+        qs = [self.get_q(state, a) for a in ACTIONS]
+        return np.argmax(qs)
+    
+    def update(self, state, action, reward, next_state, done):
+        q_val = self.get_q(state, action)
+        if done: target = reward
+        else: target = reward + GAMMA * max([self.get_q(next_state, a) for a in ACTIONS])
+        
+        error = target - q_val
+        self.w += ALPHA * error * self.feature_func(state, action)
+        
+    def decay_epsilon(self):
+        self.epsilon = max(EPSILON_END, self.epsilon * EPSILON_DECAY)
+
+def train(name, feat_func, dim):
+    env = GridWorld()
+    agent = LinearAgent(feat_func, dim)
+    steps_history = []
+    
+    print(f"Training {name}...")
+    for e in range(EPISODES):
+        state = env.reset()
+        done = False
+        steps = 0
+        while not done and steps < 200:
+            action = agent.select_action(state)
+            next_s, r, done = env.step(action)
+            agent.update(state, action, r, next_s, done)
+            state = next_s
+            steps += 1
+        agent.decay_epsilon()
+        steps_history.append(steps)
+    return agent, steps_history
+
+# --- Execution ---
+# One-Hot Dim: 100 states * 4 actions = 400 dimensions
+agent_oh, steps_oh = train("One-Hot", get_features_one_hot, (GRID_SIZE**2)*4)
+# Low-Dim: 3 features * 4 actions = 12 dimensions
+agent_ld, steps_ld = train("Low-Dim", get_features_low_dim, 12)
+
+# --- Visualization ---
+def get_v_map(agent):
+    v = np.zeros((GRID_SIZE, GRID_SIZE))
+    for r in range(GRID_SIZE):
+        for c in range(GRID_SIZE):
+            v[r,c] = max([agent.get_q((r,c), a) for a in ACTIONS])
+    return v
+
+fig, ax = plt.subplots(1, 3, figsize=(18, 5))
+
+# Heatmap One-Hot
+sns.heatmap(get_v_map(agent_oh), ax=ax[0], cmap="inferno")
+ax[0].set_title("One-Hot: Fragmented Memory\n(Unvisited states remain zero)")
+ax[0].set_xlabel("Grid X")
+ax[0].set_ylabel("Grid Y")
+
+# Heatmap Low-Dim
+sns.heatmap(get_v_map(agent_ld), ax=ax[1], cmap="inferno")
+ax[1].set_title("Low-Dim: Global Generalization\n(Smooth gradient towards goal)")
+ax[1].set_xlabel("Grid X")
+ax[1].set_ylabel("Grid Y")
+
+# Learning Curve (Smoothed)
+def smooth(x): return np.convolve(x, np.ones(50)/50, mode='valid')
+
+if len(steps_oh) > 50:
+    ax[2].plot(smooth(steps_oh), label="One-Hot (High Dim)", alpha=0.6)
+    ax[2].plot(smooth(steps_ld), label="Low-Dim (Features)", linewidth=3)
+else:
+    ax[2].plot(steps_oh, label="One-Hot")
+    ax[2].plot(steps_ld, label="Low-Dim")
+
+ax[2].set_title("Learning Performance")
+ax[2].set_xlabel("Episodes")
+ax[2].set_ylabel("Steps to Reach Goal (Lower is Better)")
+ax[2].legend()
+ax[2].grid(True, alpha=0.3)
+
+plt.tight_layout()
+plt.savefig('comparison_english.png')
+plt.show()
