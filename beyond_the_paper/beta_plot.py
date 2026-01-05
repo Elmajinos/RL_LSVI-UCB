@@ -67,7 +67,7 @@ class UCBAgent:
 betas_to_test = [0.0, 0.1, 0.3, 0.5, 0.8, 1.0, 1.5, 2.0, 3.0, 5.0, 10.0]
 entropy_results = []
 
-print("Calcul de la courbe Entropie vs Beta...")
+print("Entropy slope.")
 
 for beta in betas_to_test:
     env = GridWorld()
@@ -103,7 +103,6 @@ plt.ylabel("Shannon Entropy (Visits Diversity)")
 plt.legend()
 plt.grid(True, alpha=0.3)
 
-# Annotations pour expliquer la forme
 plt.annotate('Activation', xy=(0.3, entropy_results[2]), xytext=(1, entropy_results[2]-0.5),
              arrowprops=dict(facecolor='black', shrink=0.05))
 plt.annotate('Saturation', xy=(5.0, entropy_results[-2]), xytext=(5, entropy_results[-2]-0.5),
