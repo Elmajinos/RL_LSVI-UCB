@@ -124,7 +124,6 @@ ax[0].set_ylabel("% of Unique States Visited")
 ax[0].legend()
 ax[0].grid(True, alpha=0.3)
 
-# Plot 2: Entropie (Mesure scalaire de l'uniformité)
 entropies = [data[b]['entropy'] for b in betas]
 colors = ['blue', 'orange', 'green']
 bars = ax[1].bar([str(b) for b in betas], entropies, color=colors)
@@ -132,7 +131,6 @@ ax[1].set_title("Exploration Spread (Shannon Entropy)")
 ax[1].set_xlabel("Beta Value")
 ax[1].set_ylabel("Entropy (Higher = More Uniform Exploration)")
 
-# Ajout des valeurs sur les barres
 for bar in bars:
     yval = bar.get_height()
     ax[1].text(bar.get_x() + bar.get_width()/2, yval, f"{yval:.2f}", va='bottom', ha='center')
