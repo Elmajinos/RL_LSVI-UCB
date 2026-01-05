@@ -2,9 +2,6 @@ import numpy as np
 import matplotlib.pyplot as plt
 import seaborn as sns
 
-# ==========================================
-# 1. ENVIRONNEMENT
-# ==========================================
 class LinearGridWorld:
     def __init__(self, size=5, horizon=15):
         self.size = size
@@ -37,9 +34,6 @@ class LinearGridWorld:
             
         return ns, reward
 
-# ==========================================
-# 2. AGENTS
-# ==========================================
 class LSVIUCBAgent:
     def __init__(self, d, n_actions, horizon, beta=10.0):
         self.d = d
@@ -88,31 +82,24 @@ class QLearningAgent:
         td_error = td_target - self.q_table[s, a]
         self.q_table[s, a] += self.alpha * td_error
 
-# ==========================================
-# 3. SIMULATION LONGUE DURÉE
-# ==========================================
 def run_comparison():
     SIZE = 5
     HORIZON = 15
-    EPISODES = 5000 # On augmente drastiquement !
+    EPISODES = 5000 
     
     env = LinearGridWorld(size=SIZE, horizon=HORIZON)
     
     lsvi = LSVIUCBAgent(env.d, env.n_actions, HORIZON, beta=10.0)
-    # Epsilon commence à 1.0 (full exploration) et descendra
     ql = QLearningAgent(env.d, env.n_actions, alpha=0.1, epsilon=1.0)
     
     rewards_lsvi = []
     rewards_ql = []
 
-    print(f"🏃‍♂️ Marathon : LSVI vs Q-Learning sur {EPISODES} épisodes...")
+    print(f"Running comparison over {EPISODES} episodes...")
 
     for k in range(EPISODES):
-        # Gestion de Epsilon (Decay) pour Q-learning
-        # On le fait descendre doucement jusqu'à 0.1
         ql.epsilon = max(0.1, 1.0 - (k / (EPISODES * 0.6)))
 
-        # --- Tour de LSVI ---
         s = 0
         score_lsvi = 0
         for h in range(HORIZON):
@@ -126,7 +113,6 @@ def run_comparison():
             if ns == env.target_state: break
         rewards_lsvi.append(score_lsvi)
 
-        # --- Tour de Q-Learning ---
         s = 0
         score_ql = 0
         for h in range(HORIZON):
@@ -139,28 +125,24 @@ def run_comparison():
         rewards_ql.append(score_ql)
         
         if k % 500 == 0:
-            print(f"Épisode {k}/{EPISODES} - Epsilon QL: {ql.epsilon:.2f}")
+            print(f"Episode {k}/{EPISODES} - Epsilon QL: {ql.epsilon:.2f}")
 
-    # --- LISSAGE ---
-    window = 100 # Fenêtre plus large pour lisser le bruit sur 5000 points
+    window = 100 
     smooth_lsvi = np.convolve(rewards_lsvi, np.ones(window)/window, mode='valid')
     smooth_ql = np.convolve(rewards_ql, np.ones(window)/window, mode='valid')
 
-    # --- VISUALISATION ---
     fig = plt.figure(figsize=(16, 8))
     gs = fig.add_gridspec(2, 2)
 
-    # 1. Courbes
     ax_curve = fig.add_subplot(gs[0, :])
-    ax_curve.plot(smooth_lsvi, label="LSVI-UCB (Immédiat)", color='red', linewidth=1.5)
-    ax_curve.plot(smooth_ql, label="Q-Learning (Converge lentement)", color='blue', linestyle='--', alpha=0.8)
-    ax_curve.set_title(f"Convergence sur le long terme ({EPISODES} épisodes)")
-    ax_curve.set_xlabel("Épisodes")
-    ax_curve.set_ylabel("Récompense Moyenne")
+    ax_curve.plot(smooth_lsvi, label="LSVI-UCB", color='red', linewidth=1.5)
+    ax_curve.plot(smooth_ql, label="Q-Learning", color='blue', linestyle='--', alpha=0.8)
+    ax_curve.set_title(f"Long-term Convergence ({EPISODES} episodes)")
+    ax_curve.set_xlabel("Episodes")
+    ax_curve.set_ylabel("Average Reward")
     ax_curve.legend()
     ax_curve.grid(True, alpha=0.3)
 
-    # 2. Heatmap LSVI
     ax_lsvi = fig.add_subplot(gs[1, 0])
     map_lsvi = np.zeros((SIZE, SIZE))
     for r in range(SIZE):
@@ -170,9 +152,8 @@ def run_comparison():
             vals = [phi @ lsvi.w[h] for h in range(HORIZON)]
             map_lsvi[r, c] = np.max(vals)
     sns.heatmap(map_lsvi, annot=True, ax=ax_lsvi, cmap="Reds", fmt=".1f")
-    ax_lsvi.set_title("Cerveau LSVI")
+    ax_lsvi.set_title("LSVI Value Map")
 
-    # 3. Heatmap Q-Learning
     ax_ql = fig.add_subplot(gs[1, 1])
     map_ql = np.zeros((SIZE, SIZE))
     for r in range(SIZE):
@@ -180,7 +161,7 @@ def run_comparison():
             s = r * SIZE + c
             map_ql[r, c] = np.max(ql.q_table[s])
     sns.heatmap(map_ql, annot=True, ax=ax_ql, cmap="Blues", fmt=".1f")
-    ax_ql.set_title(f"Cerveau Q-Learning (Après {EPISODES} ép.)")
+    ax_ql.set_title(f"Q-Learning Value Map")
 
     plt.tight_layout()
     plt.show()

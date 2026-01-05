@@ -2,9 +2,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from scipy.stats import entropy
 
-# --- ON GARDE LA MÊME CONFIGURATION ---
 GRID_SIZE = 15      
-EPISODES = 400 # Suffisant pour l'entropie
+EPISODES = 400 
 GOAL = (GRID_SIZE - 1, GRID_SIZE - 1)
 START = (0, 0)
 ACTIONS = [0, 1, 2, 3] 
@@ -65,8 +64,6 @@ class UCBAgent:
         error = target - np.dot(self.w, phi)
         self.w += self.alpha * error * phi
 
-# --- EXPÉRIENCE : SWEEP DE BETA ---
-# On teste beaucoup de valeurs pour voir la forme de la courbe
 betas_to_test = [0.0, 0.1, 0.3, 0.5, 0.8, 1.0, 1.5, 2.0, 3.0, 5.0, 10.0]
 entropy_results = []
 
@@ -77,7 +74,6 @@ for beta in betas_to_test:
     agent = UCBAgent(n_features=12, beta=beta, alpha=0.01)
     visit_counts = np.zeros((GRID_SIZE, GRID_SIZE))
     
-    # On lance la simulation
     for e in range(EPISODES):
         state = env.reset()
         visit_counts[state] += 1
@@ -91,16 +87,13 @@ for beta in betas_to_test:
             visit_counts[state] += 1
             steps += 1
             
-    # Calcul de l'entropie finale pour ce Beta
     p_dist = visit_counts.flatten() / np.sum(visit_counts)
     ent = entropy(p_dist + 1e-9)
     entropy_results.append(ent)
     print(f"Beta={beta} -> Entropy={ent:.3f}")
 
-# --- PLOT ---
-plt.figure(figsize=(10, 6))
 
-# La courbe réelle
+plt.figure(figsize=(10, 6))
 plt.plot(betas_to_test, entropy_results, marker='o', linewidth=2, label="Entropy Measure")
 
 
